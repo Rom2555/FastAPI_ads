@@ -1,11 +1,11 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, status
+from fastapi import FastAPI, status, HTTPException
 
 from database import Base, engine
 from dependencies import DBDep, AdDep
 from models import Advertisement
-from schemas import AdCreate, AdResponse
+from schemas import AdCreate, AdResponse, AdUpdate
 
 
 # Функция жизненного цикла приложения
@@ -51,6 +51,25 @@ async def create_advertisement(data: AdCreate, db: DBDep):
     db.add(ad)
     await db.flush()
     return ad
+
+
+@app.patch("/advertisement/{advertisement_id}", response_model=AdResponse)
+async def update_advertisement(data: AdUpdate, ad: AdDep):
+    """Обновление информации в существующем объявлении"""
+    update_data = data.model_dump(exclude_unset=True)
+    if not update_data:
+        raise HTTPException(status_code=400, detail="Нет данных для обновления")
+
+    for k, v in update_data.items():
+        setattr(ad, k, v)
+    return ad
+
+
+@app.delete("/advertisement/{advertisement_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_advertisement(ad: AdDep, db: DBDep):
+    """Удаление объявления из базы"""
+    await db.delete(ad)
+    return None
 
 
 # Запуск приложения
