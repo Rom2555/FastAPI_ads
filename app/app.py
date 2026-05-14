@@ -7,6 +7,18 @@ from models import Advertisement
 from schemas import AdCreate, AdFilter, AdResponse, AdUpdate
 from sqlalchemy import select
 
+# Описание тегов для Swagger UI
+tags_metadata = [
+    {
+        "name": "Advertisements",
+        "description": "Операции с объявлениями: создание, поиск, обновление, удаление.",
+    },
+    {
+        "name": "System",
+        "description": "Системные эндпоинты: проверка статуса.",
+    },
+]
+
 
 # Функция жизненного цикла приложения
 @asynccontextmanager
@@ -25,7 +37,9 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(
     title="Advertisements API",
     description="API для работы с объявлениями.",
+    version="1.0.0",
     lifespan=lifespan,
+    openapi_tags=tags_metadata
 )
 
 
@@ -34,6 +48,7 @@ app = FastAPI(
 
 @app.get(
     "/health",
+    tags=["System"],
     summary="Проверка здоровья сервера",
     description="Возвращает статус сервера. Если сервер работает - вернет `ok`.",
 )
@@ -43,6 +58,7 @@ async def health():
 
 @app.get(
     "/advertisement/{advertisement_id}",
+    tags=["Advertisements"],
     response_model=AdResponse,
     summary="Получить объявление по ID",
     description="""
@@ -60,6 +76,7 @@ async def get_advertisement(ad: AdDep):
     "/advertisement",
     response_model=AdResponse,
     status_code=status.HTTP_201_CREATED,
+    tags=["Advertisements"],
     summary="Создать объявление",
     description="""
     Создает новое объявление и сохраняет его в базу данных.
@@ -78,6 +95,7 @@ async def create_advertisement(data: AdCreate, db: DBDep):
 @app.patch(
     "/advertisement/{advertisement_id}",
     response_model=AdResponse,
+    tags=["Advertisements"],
     summary="Обновить объявление",
     description="""
     Частично обновляет существующее объявление.
@@ -101,6 +119,7 @@ async def update_advertisement(data: AdUpdate, ad: AdDep):
 @app.delete(
     "/advertisement/{advertisement_id}",
     status_code=status.HTTP_204_NO_CONTENT,
+    tags=["Advertisements"],
     summary="Удалить объявление",
     description="""
     Безвозвратно удаляет объявление из базы данных по его ID.
@@ -118,6 +137,7 @@ async def delete_advertisement(ad: AdDep, db: DBDep):
 @app.get(
     "/advertisement",
     response_model=list[AdResponse],
+    tags=["Advertisements"],
     summary="Поиск объявлений",
     description="""
 **Правила поиска:**
