@@ -35,11 +35,12 @@ class AdCreate(AdSchema):
                     "title": "Продам велосипед",
                     "description": "Отличный горный велосипед, почти новый.",
                     "price": 15000,
-                    "author": "Иван Иванов"
+                    "author": "Иван Иванов",
                 }
             ]
         }
     )
+
 
 class AdUpdate(BaseModel):
     title: Optional[StrippedStr] = Field(None, min_length=1, max_length=200)
@@ -50,12 +51,7 @@ class AdUpdate(BaseModel):
     # Пример данных, который будет отображаться в Swagger
     model_config = ConfigDict(
         json_schema_extra={
-            "examples": [
-                {
-                    "price": 12000,
-                    "description": "Цена снижена! Срочно!"
-                }
-            ]
+            "examples": [{"price": 12000, "description": "Цена снижена! Срочно!"}]
         }
     )
 

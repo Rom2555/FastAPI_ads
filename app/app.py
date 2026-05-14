@@ -32,8 +32,11 @@ app = FastAPI(
 # Роуты
 
 
-@app.get("/health", summary="Проверка здоровья сервера",
-         description="Возвращает статус сервера. Если сервер работает - вернет `ok`.")
+@app.get(
+    "/health",
+    summary="Проверка здоровья сервера",
+    description="Возвращает статус сервера. Если сервер работает - вернет `ok`.",
+)
 async def health():
     return {"status": "ok"}
 
@@ -47,7 +50,7 @@ async def health():
 
     - Если объявление существует, вернет его данные.
     - Если ID не существует, вернет ошибку **404 Not Found**.
-    """
+    """,
 )
 async def get_advertisement(ad: AdDep):
     return ad
@@ -63,7 +66,7 @@ async def get_advertisement(ad: AdDep):
 
     Все поля обязательны для заполнения. Строки, состоящие только из пробелов, не пройдут валидацию.
     При успешном создании возвращается статус **201 Created** и полный объект объявления с присвоенным ID и датой создания.
-    """
+    """,
 )
 async def create_advertisement(data: AdCreate, db: DBDep):
     ad = Advertisement(**data.model_dump())
@@ -83,7 +86,7 @@ async def create_advertisement(data: AdCreate, db: DBDep):
     - Поля `title`, `description` и `author` проходят строгую проверку: пустые строки или строки из пробелов вызовут ошибку **400 Bad Request**.
     - Если не передать ни одного поля, сервер вернет ошибку **400 Bad Request**.
     - Если объявление не найдено, вернется ошибка **404 Not Found**.
-    """
+    """,
 )
 async def update_advertisement(data: AdUpdate, ad: AdDep):
     update_data = data.model_dump(exclude_unset=True)
@@ -104,7 +107,7 @@ async def update_advertisement(data: AdUpdate, ad: AdDep):
 
     - В случае успеха возвращает статус **204 No Content** (пустой ответ).
     - Если объявление с таким ID не найдено, вернет ошибку **404 Not Found**.
-    """
+    """,
 )
 async def delete_advertisement(ad: AdDep, db: DBDep):
     await db.delete(ad)
@@ -124,7 +127,7 @@ async def delete_advertisement(ad: AdDep, db: DBDep):
 - `min_price` / `max_price` - фильтруют по диапазону цены включительно.
 
 Параметры можно комбинировать. Если параметры не переданы - вернет все объявления.
-"""
+""",
 )
 async def search_advertisements(db: DBDep, filters: AdFilter = Depends()):
     """Поиск объявлений по параметрам."""
