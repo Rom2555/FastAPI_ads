@@ -1,6 +1,6 @@
 from sqlalchemy import Column, DateTime, Integer, String, Text, func
 
-from app.database import Base
+from database import Base
 
 
 # Модель база данных
