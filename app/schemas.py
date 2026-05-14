@@ -4,8 +4,8 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy import Select
 
-
 # Схемы Pydantic
+
 
 class AdSchema(BaseModel):
     title: str = Field(min_length=1, max_length=200)
@@ -47,8 +47,13 @@ class AdResponse(BaseModel):
 
 class AdFilter(BaseModel):
     """Схема для фильтрации объявлений."""
-    title: Optional[str] = Field(None, description="Поиск по заголовку (частичное совпадение)")
-    author: Optional[str] = Field(None, description="Поиск по автору (точное совпадение)")
+
+    title: Optional[str] = Field(
+        None, description="Поиск по заголовку (частичное совпадение)"
+    )
+    author: Optional[str] = Field(
+        None, description="Поиск по автору (точное совпадение)"
+    )
     min_price: Optional[int] = Field(None, ge=0, description="Минимальная цена")
     max_price: Optional[int] = Field(None, ge=0, description="Максимальная цена")
 

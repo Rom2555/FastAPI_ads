@@ -1,10 +1,9 @@
 from typing import Annotated, AsyncGenerator
 
-from fastapi import Depends, HTTPException
-from sqlalchemy.ext.asyncio import AsyncSession
-
 from database import async_session
+from fastapi import Depends, HTTPException
 from models import Advertisement
+from sqlalchemy.ext.asyncio import AsyncSession
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
@@ -18,7 +17,9 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
             raise
 
 
-async def get_ad_obj(advertisement_id: int, db: AsyncSession = Depends(get_db)) -> Advertisement:
+async def get_ad_obj(
+    advertisement_id: int, db: AsyncSession = Depends(get_db)
+) -> Advertisement:
     """Извлекает объявление по ID или выбрасывает 404."""
     ad = await db.get(Advertisement, advertisement_id)
     if not ad:

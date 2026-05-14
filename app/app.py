@@ -1,12 +1,11 @@
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, status, HTTPException, Depends
-from sqlalchemy import select
-
 from database import Base, engine
-from dependencies import DBDep, AdDep
+from dependencies import AdDep, DBDep
+from fastapi import Depends, FastAPI, HTTPException, status
 from models import Advertisement
-from schemas import AdCreate, AdResponse, AdUpdate, AdFilter
+from schemas import AdCreate, AdFilter, AdResponse, AdUpdate
+from sqlalchemy import select
 
 
 # Функция жизненного цикла приложения
@@ -25,13 +24,14 @@ async def lifespan(app: FastAPI):
 
 # Передаем lifespan в приложение
 app = FastAPI(
-    title='Advertisements API',
+    title="Advertisements API",
     description="API для работы с объявлениями.",
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 
 # Роуты
+
 
 @app.get("/health")
 async def health():
@@ -45,7 +45,9 @@ async def get_advertisement(ad: AdDep):
     return ad
 
 
-@app.post("/advertisement", response_model=AdResponse, status_code=status.HTTP_201_CREATED)
+@app.post(
+    "/advertisement", response_model=AdResponse, status_code=status.HTTP_201_CREATED
+)
 async def create_advertisement(data: AdCreate, db: DBDep):
     """Создает новое объявление."""
     ad = Advertisement(**data.model_dump())

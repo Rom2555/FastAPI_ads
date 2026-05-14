@@ -1,6 +1,5 @@
-from sqlalchemy import Column, DateTime, Integer, String, Text, func
-
 from database import Base
+from sqlalchemy import Column, DateTime, Integer, String, Text, func
 
 
 # Модель база данных
