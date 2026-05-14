@@ -1,6 +1,8 @@
 from contextlib import asynccontextmanager
+from typing import Optional
 
-from fastapi import FastAPI, status, HTTPException
+from fastapi import FastAPI, status, HTTPException, Query
+from sqlalchemy import select
 
 from database import Base, engine
 from dependencies import DBDep, AdDep
@@ -70,6 +72,33 @@ async def delete_advertisement(ad: AdDep, db: DBDep):
     """Удаление объявления из базы"""
     await db.delete(ad)
     return None
+
+
+
+# Поиск. ( ?title=Кошак&min_price=100 )
+@app.get("/advertisement", response_model=list[AdResponse])
+async def search_advertisements(
+        db: DBDep,
+        title: Optional[str] = Query(None, description="Поиск по заголовку (точное совпадение)"),
+        author: Optional[str] = Query(None, description="Поиск по автору"),
+        min_price: Optional[int] = Query(None, ge=0, description="Минимальная цена"),
+        max_price: Optional[int] = Query(None, ge=0, description="Максимальная цена"),
+):
+    """Поиск объявлений по полям через query-параметры."""
+    query = select(Advertisement)
+
+    if title is not None:
+        query = query.where(Advertisement.title.ilike(f"%{title}%"))
+    if author is not None:
+        query = query.where(Advertisement.author == author)
+    if min_price is not None:
+        query = query.where(Advertisement.price >= min_price)
+    if max_price is not None:
+        query = query.where(Advertisement.price <= max_price)
+
+    res = await db.execute(query)
+    ads = res.scalars().all()
+    return ads
 
 
 # Запуск приложения
