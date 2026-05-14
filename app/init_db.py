@@ -1,6 +1,6 @@
 import asyncio
 
-from app import Base, engine
+from database import Base, engine
 
 
 async def init():
