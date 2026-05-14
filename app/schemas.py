@@ -1,6 +1,8 @@
 from datetime import datetime
+from typing import Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from sqlalchemy import Select
 
 
 # Схемы Pydantic
@@ -41,3 +43,31 @@ class AdResponse(BaseModel):
     price: int
     author: str
     created_at: datetime | None
+
+
+class AdFilter(BaseModel):
+    """Схема для фильтрации объявлений."""
+    title: Optional[str] = Field(None, description="Поиск по заголовку (частичное совпадение)")
+    author: Optional[str] = Field(None, description="Поиск по автору (точное совпадение)")
+    min_price: Optional[int] = Field(None, ge=0, description="Минимальная цена")
+    max_price: Optional[int] = Field(None, ge=0, description="Максимальная цена")
+
+    def filter_query(self, query: Select) -> Select:
+        """Применяет фильтры к sqlalchemy запросу, если они переданы"""
+        filters = self.model_dump(exclude_unset=True)
+
+        for key, value in filters.items():
+            if key == "title":
+                # Поиск по вхождению исключая регистр
+                query = query.where(Advertisement.title.ilike(f"%{value}%"))
+            elif key == "min_price":
+                query = query.where(Advertisement.price >= value)
+            elif key == "max_price":
+                query = query.where(Advertisement.price <= value)
+            else:
+                # Для остальных полей (например author) - точное совпадение
+                column = getattr(Advertisement, key, None)
+                if column is not None:
+                    query = query.where(column == value)
+
+        return query
