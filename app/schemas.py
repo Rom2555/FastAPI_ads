@@ -60,21 +60,22 @@ class AdFilter(BaseModel):
     max_price: Optional[int] = Field(None, ge=0, description="Максимальная цена")
 
     def filter_query(self, query: Select, model) -> Select:
-        """Применяет фильтры к sqlalchemy запросу, если они переданы"""
+        """Фильтрует запрос на основе данных из схемы фильтра."""
         filters = self.model_dump(exclude_unset=True, exclude_none=True)
 
         for key, value in filters.items():
             if key == "title":
-                # Поиск по вхождению исключая регистр
+                # Частичное совпадение. Регистр не влияет
                 query = query.where(model.title.ilike(f"%{value}%"))
+
+            elif key == "author":
+                # Точное совпадение
+                query = query.where(model.author == value)
+
             elif key == "min_price":
                 query = query.where(model.price >= value)
+
             elif key == "max_price":
                 query = query.where(model.price <= value)
-            else:
-                # Для остальных полей - точное совпадение
-                column = getattr(model, key, None)
-                if column is not None:
-                    query = query.where(column == value)
 
         return query
