@@ -27,14 +27,37 @@ class AdSchema(BaseModel):
 
 
 class AdCreate(AdSchema):
-    pass
-
+    # Пример данных, который будет отображаться в Swagger
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "title": "Продам велосипед",
+                    "description": "Отличный горный велосипед, почти новый.",
+                    "price": 15000,
+                    "author": "Иван Иванов"
+                }
+            ]
+        }
+    )
 
 class AdUpdate(BaseModel):
     title: Optional[StrippedStr] = Field(None, min_length=1, max_length=200)
     description: Optional[StrippedStr] = Field(None, min_length=1, max_length=300)
     price: Optional[int] = Field(None, ge=0)
     author: Optional[StrippedStr] = Field(None, min_length=1, max_length=100)
+
+    # Пример данных, который будет отображаться в Swagger
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {
+                    "price": 12000,
+                    "description": "Цена снижена! Срочно!"
+                }
+            ]
+        }
+    )
 
 
 class AdResponse(BaseModel):
