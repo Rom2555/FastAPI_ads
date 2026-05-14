@@ -75,7 +75,20 @@ async def delete_advertisement(ad: AdDep, db: DBDep):
 
 
 # Поиск. ( ?title=Кошак&min_price=100 )
-@app.get("/advertisement", response_model=list[AdResponse])
+@app.get(
+    "/advertisement",
+    response_model=list[AdResponse],
+    summary="Поиск объявлений",
+    description="""
+**Правила поиска:**
+
+- `title` - ищет **частичное совпадение** без учета регистра. Например, запрос `кош` найдет объявления со словами *Кошка*, *хорошая кошка*, *Кошелек*.
+- `author` - ищет **строгое совпадение**. Запрос `Иван` не найдет `Иван Иванов`.
+- `min_price` / `max_price` - фильтруют по диапазону цены включительно.
+
+Параметры можно комбинировать. Если параметры не переданы - вернет все объявления.
+"""
+)
 async def search_advertisements(db: DBDep, filters: AdFilter = Depends()):
     """Поиск объявлений по параметрам."""
     # Базовый запрос
