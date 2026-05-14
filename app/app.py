@@ -10,7 +10,7 @@ from sqlalchemy import select
 
 # Функция жизненного цикла приложения
 @asynccontextmanager
-async def lifespan(app: FastAPI):
+async def lifespan(_app: FastAPI):
     # Код, выполняемый до старта приложения
     async with engine.begin() as conn:
         # Создаем все таблицы из моделей по схемам
@@ -19,7 +19,6 @@ async def lifespan(app: FastAPI):
     yield
 
     # Код, выполняемый при выключении приложения
-    pass
 
 
 # Передаем lifespan в приложение
@@ -83,7 +82,7 @@ async def search_advertisements(db: DBDep, filters: AdFilter = Depends()):
     query = select(Advertisement)
 
     # Фильтрация через метод схемы
-    query = filters.filter_query(query)
+    query = filters.filter_query(query, Advertisement)
 
     # Выполнение и возврат результатов
     res = await db.execute(query)

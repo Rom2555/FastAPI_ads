@@ -1,26 +1,29 @@
 from datetime import datetime
-from typing import Optional
+from typing import Annotated, Optional
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, BeforeValidator, ConfigDict, Field
 from sqlalchemy import Select
 
-# Схемы Pydantic
+
+# Вспомогательная функция
+def strip_ws(v):
+    """Обрезает пробелы и запрещает пустые строки."""
+    if isinstance(v, str):
+        v = v.strip()
+    if not v:
+        raise ValueError("Поле не может быть пустым или состоять из пробелов")
+    return v
+
+
+# Тип данных для схем. strip_ws выполнится до проверок Pydantiс
+StrippedStr = Annotated[str, BeforeValidator(strip_ws)]
 
 
 class AdSchema(BaseModel):
-    title: str = Field(min_length=1, max_length=200)
-    description: str = Field(min_length=1, max_length=300)
+    title: StrippedStr = Field(min_length=1, max_length=200)
+    description: StrippedStr = Field(min_length=1, max_length=300)
     price: int = Field(ge=0, description="Цена не может быть отрицательной")
-    author: str = Field(min_length=1, max_length=100)
-
-    @field_validator("title", "description", "author", mode="before")
-    @classmethod
-    def strip_ws(cls, v):
-        if isinstance(v, str):
-            v = v.strip()
-        if not v:
-            raise ValueError("Поле не может быть пустым или состоять из пробелов")
-        return v
+    author: StrippedStr = Field(min_length=1, max_length=100)
 
 
 class AdCreate(AdSchema):
@@ -28,11 +31,10 @@ class AdCreate(AdSchema):
 
 
 class AdUpdate(BaseModel):
-    # Все поля опциональны для PATCH
-    title: str | None = Field(None, min_length=1, max_length=200)
-    description: str | None = Field(None, min_length=1, max_length=300)
-    price: int | None = Field(None, ge=0)
-    author: str | None = Field(None, min_length=1, max_length=100)
+    title: Optional[StrippedStr] = Field(None, min_length=1, max_length=200)
+    description: Optional[StrippedStr] = Field(None, min_length=1, max_length=300)
+    price: Optional[int] = Field(None, ge=0)
+    author: Optional[StrippedStr] = Field(None, min_length=1, max_length=100)
 
 
 class AdResponse(BaseModel):
@@ -57,21 +59,19 @@ class AdFilter(BaseModel):
     min_price: Optional[int] = Field(None, ge=0, description="Минимальная цена")
     max_price: Optional[int] = Field(None, ge=0, description="Максимальная цена")
 
-    def filter_query(self, query: Select) -> Select:
+    def filter_query(self, query: Select, model) -> Select:
         """Применяет фильтры к sqlalchemy запросу, если они переданы"""
         filters = self.model_dump(exclude_unset=True)
 
         for key, value in filters.items():
             if key == "title":
-                # Поиск по вхождению исключая регистр
-                query = query.where(Advertisement.title.ilike(f"%{value}%"))
+                query = query.where(model.title.ilike(f"%{value}%"))
             elif key == "min_price":
-                query = query.where(Advertisement.price >= value)
+                query = query.where(model.price >= value)
             elif key == "max_price":
-                query = query.where(Advertisement.price <= value)
+                query = query.where(model.price <= value)
             else:
-                # Для остальных полей (например author) - точное совпадение
-                column = getattr(Advertisement, key, None)
+                column = getattr(model, key, None)
                 if column is not None:
                     query = query.where(column == value)
 
