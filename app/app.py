@@ -1,11 +1,12 @@
 from contextlib import asynccontextmanager
 
+from fastapi import Depends, FastAPI, HTTPException, status
+from sqlalchemy import select
+
 from database import Base, engine
 from dependencies import AdDep, DBDep
-from fastapi import Depends, FastAPI, HTTPException, status
 from models import Advertisement
 from schemas import AdCreate, AdFilter, AdResponse, AdUpdate
-from sqlalchemy import select
 
 # Описание тегов для Swagger UI
 tags_metadata = [
@@ -44,7 +45,6 @@ app = FastAPI(
 
 
 # Роуты
-
 
 @app.get(
     "/health",
