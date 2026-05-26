@@ -19,6 +19,9 @@ def strip_ws(v):
 StrippedStr = Annotated[str, BeforeValidator(strip_ws)]
 
 
+# Схемы для объявлений
+
+
 class AdSchema(BaseModel):
     title: StrippedStr = Field(min_length=1, max_length=200)
     description: StrippedStr = Field(min_length=1, max_length=300)
@@ -63,6 +66,8 @@ class AdResponse(BaseModel):
     description: str
     price: int
     author: str
+    # ID владельца
+    owner_id: int
     created_at: datetime | None
 
 
@@ -98,3 +103,69 @@ class AdFilter(BaseModel):
                 query = query.where(model.price <= value)
 
         return query
+
+
+# Схемы для пользователей
+
+
+class UserCreate(BaseModel):
+    """Схема для регистрации."""
+
+    username: StrippedStr = Field(min_length=3, max_length=100)
+    password: str = Field(min_length=6, max_length=100)
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {"username": "ivan_ivanov", "password": "super_secret_password"}
+            ]
+        }
+    )
+
+
+class UserUpdate(BaseModel):
+    """Схема для обновления данных пользователя. Все поля опциональны."""
+
+    username: Optional[StrippedStr] = Field(None, min_length=3, max_length=100)
+    password: Optional[str] = Field(None, min_length=6, max_length=100)
+    # Регулярка. Может быть только user или admin
+    role: Optional[str] = Field(None, pattern="^(user|admin)$")
+
+    model_config = ConfigDict(
+        json_schema_extra={"examples": [{"password": "new_super_secret_password"}]}
+    )
+
+
+class UserResponse(BaseModel):
+    """Схема того, что сервер возвращает клиенту о пользователе."""
+
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    username: str
+    role: str
+    created_at: datetime | None
+
+
+# Схемы авторизации
+
+
+class LoginRequest(BaseModel):
+    """Тело запроса для роута POST /login."""
+
+    username: str
+    password: str
+
+    model_config = ConfigDict(
+        json_schema_extra={
+            "examples": [
+                {"username": "ivan_ivanov", "password": "super_secret_password"}
+            ]
+        }
+    )
+
+
+class TokenResponse(BaseModel):
+    """Ответ сервера при успешном логине."""
+
+    access_token: str
+    token_type: str = "bearer"
