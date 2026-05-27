@@ -6,7 +6,9 @@ import jwt
 from passlib.context import CryptContext
 
 # Настройки безопасности
-SECRET_KEY = os.environ.get("SECRET_KEY", "lk2jhr%re*&^lkt2krjg;ero;wogikew:{popi54iuqi")
+SECRET_KEY = os.environ.get("SECRET_KEY")
+if not SECRET_KEY:
+    raise ValueError("Не установлен ключ секретности")
 ALGORITHM = os.environ.get("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.environ.get("ACCESS_TOKEN_EXPIRE_MINUTES", "2880"))
 

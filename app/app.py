@@ -55,7 +55,6 @@ async def lifespan(_app: FastAPI):
             )
             session.add(new_admin)
             await session.commit()
-            print(f"Создан администратор по умолчанию: {admin_username}")
 
     yield
 
