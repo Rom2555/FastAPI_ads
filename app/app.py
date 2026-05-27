@@ -6,14 +6,11 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 
 import auth
-from database import Base, engine, async_session
-from dependencies import AdDep, DBDep, UserDep, CurrentUserDep, get_db
+from database import Base, async_session, engine
+from dependencies import AdDep, CurrentUserDep, DBDep, UserDep, get_db
 from models import Advertisement, User
-from schemas import (
-    AdCreate, AdFilter, AdResponse, AdUpdate,
-    UserCreate, UserUpdate, UserResponse,
-    TokenResponse
-)
+from schemas import (AdCreate, AdFilter, AdResponse, AdUpdate, TokenResponse,
+                     UserCreate, UserResponse, UserUpdate)
 
 # Описание тегов для Swagger UI
 tags_metadata = [
@@ -49,9 +46,7 @@ async def lifespan(_app: FastAPI):
             admin_password = os.environ.get("ADMIN_PASSWORD", "admin")
             hashed_password = auth.get_password_hash(admin_password)
             new_admin = User(
-                username=admin_username,
-                password_hash=hashed_password,
-                role="admin"
+                username=admin_username, password_hash=hashed_password, role="admin"
             )
             session.add(new_admin)
             await session.commit()
@@ -67,11 +62,12 @@ app = FastAPI(
     description="API для работы с объявлениями.",
     version="2.0.0",
     lifespan=lifespan,
-    openapi_tags=tags_metadata
+    openapi_tags=tags_metadata,
 )
 
 
 # Системные роуты
+
 
 @app.get(
     "/health",
@@ -145,10 +141,15 @@ async def get_user(user: UserDep):
     summary="Обновить данные пользователя",
     description="Пользователь может обновить только себя. Админ может обновить любого.",
 )
-async def update_user(data: UserUpdate, user: UserDep, current_user: CurrentUserDep, db: DBDep):
+async def update_user(
+    data: UserUpdate, user: UserDep, current_user: CurrentUserDep, db: DBDep
+):
     # Проверка прав: либо админ, либо пользователь редактирует сам себя
     if current_user.role != "admin" and current_user.id != user.id:
-        raise HTTPException(status_code=403, detail="Недостаточно прав для редактирования этого пользователя")
+        raise HTTPException(
+            status_code=403,
+            detail="Недостаточно прав для редактирования этого пользователя",
+        )
 
     update_data = data.model_dump(exclude_unset=True)
     if not update_data:
@@ -156,11 +157,15 @@ async def update_user(data: UserUpdate, user: UserDep, current_user: CurrentUser
 
     # Если в обновлениях есть пароль, его нужно хэшировать
     if "password" in update_data:
-        update_data["password_hash"] = auth.get_password_hash(update_data.pop("password"))
+        update_data["password_hash"] = auth.get_password_hash(
+            update_data.pop("password")
+        )
 
-    # Если обычный юзер пытается сменить себе роль — запрещаем (только админ может)
+    # Если обычный юзер пытается сменить себе роль - запрещаем (только админ может)
     if "role" in update_data and current_user.role != "admin":
-        raise HTTPException(status_code=403, detail="Только администратор может менять роли")
+        raise HTTPException(
+            status_code=403, detail="Только администратор может менять роли"
+        )
 
     for k, v in update_data.items():
         setattr(user, k, v)
@@ -177,13 +182,16 @@ async def update_user(data: UserUpdate, user: UserDep, current_user: CurrentUser
 async def delete_user(user: UserDep, current_user: CurrentUserDep, db: DBDep):
     # Проверка прав: либо админ, либо пользователь удаляет сам себя
     if current_user.role != "admin" and current_user.id != user.id:
-        raise HTTPException(status_code=403, detail="Недостаточно прав для удаления этого пользователя")
+        raise HTTPException(
+            status_code=403, detail="Недостаточно прав для удаления этого пользователя"
+        )
 
     await db.delete(user)
     return None
 
 
 # Роуты объявлений с правами
+
 
 @app.get(
     "/advertisement/{advertisement_id}",
@@ -241,7 +249,10 @@ async def create_advertisement(data: AdCreate, db: DBDep, current_user: CurrentU
 async def update_advertisement(data: AdUpdate, ad: AdDep, current_user: CurrentUserDep):
     # Проверка прав: либо админ, либо владелец объявления
     if current_user.role != "admin" and ad.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Недостаточно прав для редактирования чужого объявления")
+        raise HTTPException(
+            status_code=403,
+            detail="Недостаточно прав для редактирования чужого объявления",
+        )
 
     update_data = data.model_dump(exclude_unset=True)
     if not update_data:
@@ -268,7 +279,9 @@ async def update_advertisement(data: AdUpdate, ad: AdDep, current_user: CurrentU
 async def delete_advertisement(ad: AdDep, current_user: CurrentUserDep, db: DBDep):
     # Проверка прав: либо админ, либо владелец объявления
     if current_user.role != "admin" and ad.owner_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Недостаточно прав для удаления чужого объявления")
+        raise HTTPException(
+            status_code=403, detail="Недостаточно прав для удаления чужого объявления"
+        )
 
     await db.delete(ad)
     return None

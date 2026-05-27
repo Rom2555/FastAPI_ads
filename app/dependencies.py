@@ -1,12 +1,12 @@
 from typing import Annotated, AsyncGenerator, Optional
 
-from database import async_session
 from fastapi import Depends, HTTPException
 from fastapi.security import OAuth2PasswordBearer
-from models import Advertisement, User
 from sqlalchemy.ext.asyncio import AsyncSession
 
 import auth
+from database import async_session
+from models import Advertisement, User
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:

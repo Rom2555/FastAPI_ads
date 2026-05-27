@@ -1,6 +1,8 @@
-from database import Base
-from sqlalchemy import Column, DateTime, Integer, String, Text, func, ForeignKey
+from sqlalchemy import (Column, DateTime, ForeignKey, Integer, String, Text,
+                        func)
 from sqlalchemy.orm import relationship
+
+from database import Base
 
 
 # Модель пользователя
@@ -17,7 +19,7 @@ class User(Base):
 
     created_at = Column(DateTime, default=func.now(), nullable=False)
     # Связь с объявлениями
-    ads = relationship("Advertisement", back_populates='owner')
+    ads = relationship("Advertisement", back_populates="owner")
 
 
 # Модель объявления
