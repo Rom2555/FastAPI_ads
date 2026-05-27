@@ -72,7 +72,7 @@ async def get_current_user(
 async def get_current_user_optional(
     token: Optional[str] = Depends(oauth2_scheme), db: AsyncSession = Depends(get_db)
 ) -> Optional[User]:
-    """Мягкая проверка: если токена нет — вернет None. Если есть — проверит и вернет юзера."""
+    """Мягкая проверка: если токена нет - вернет None. Если есть - проверит и вернет юзера."""
     return await _decode_and_get_user(token, db)
 
 

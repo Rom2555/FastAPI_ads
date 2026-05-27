@@ -4,15 +4,25 @@ from fastapi import Depends, FastAPI, HTTPException, status
 from sqlalchemy import select
 
 from database import Base, engine
-from dependencies import AdDep, DBDep
-from models import Advertisement
-from schemas import AdCreate, AdFilter, AdResponse, AdUpdate
+from dependencies import AdDep, DBDep, UserDep, CurrentUserDep
+from models import Advertisement, User
+from schemas import (
+    AdCreate, AdFilter, AdResponse, AdUpdate,
+    UserCreate, UserUpdate, UserResponse,
+    LoginRequest, TokenResponse
+)
+import auth
+
 
 # Описание тегов для Swagger UI
 tags_metadata = [
     {
         "name": "Advertisements",
         "description": "Операции с объявлениями: создание, поиск, обновление, удаление.",
+    },
+    {
+        "name": "Users",
+        "description": "Операции с пользователями: регистрация, просмотр, редактирование, логин.",
     },
     {
         "name": "System",
@@ -38,13 +48,13 @@ async def lifespan(_app: FastAPI):
 app = FastAPI(
     title="Advertisements API",
     description="API для работы с объявлениями.",
-    version="1.0.0",
+    version="2.0.0",
     lifespan=lifespan,
     openapi_tags=tags_metadata
 )
 
 
-# Роуты
+# Системные роуты
 
 @app.get(
     "/health",
@@ -55,6 +65,112 @@ app = FastAPI(
 async def health():
     return {"status": "ok"}
 
+
+# Роуты ползователей и авторизации
+
+
+@app.post(
+    "/login",
+    response_model=TokenResponse,
+    tags=["Users"],
+    summary="Авторизация пользователя",
+    description="Проверяет логин и пароль. Если они верны, возвращает JWT-токен.",
+)
+async def login(data: LoginRequest, db: DBDep):
+    # 1. Ищем пользователя по username
+    query = select(User).where(User.username == data.username)
+    res = await db.execute(query)
+    user = res.scalars().first()
+
+    # 2. Если не нашли или пароль не совпал — ошибка 401
+    if not user or not auth.verify_password(data.password, user.password_hash):
+        raise HTTPException(status_code=401, detail="Неверный логин или пароль")
+
+    # 3. Создаем токен с ID пользователя внутри (ключ "sub" - стандарт JWT)
+    token = auth.create_access_token({"sub": str(user.id)})
+    return TokenResponse(access_token=token)
+
+
+@app.post(
+    "/user",
+    response_model=UserResponse,
+    status_code=status.HTTP_201_CREATED,
+    tags=["Users"],
+    summary="Создать пользователя (Регистрация)",
+    description="Доступно без авторизации. Создает нового пользователя.",
+)
+async def create_user(data: UserCreate, db: DBDep):
+    # Хэшируем пароль перед сохранением
+    hashed_password = auth.get_password_hash(data.password)
+
+    # Создаем объект модели, подставляя хэш вместо чистого пароля
+    user_data = data.model_dump()
+    user_data.pop("password")  # Удаляем чистый пароль из словаря
+
+    new_user = User(**user_data, password_hash=hashed_password)
+    db.add(new_user)
+    await db.flush()
+    return new_user
+
+
+@app.get(
+    "/user/{user_id}",
+    response_model=UserResponse,
+    tags=["Users"],
+    summary="Получить пользователя по ID",
+    description="Доступно без авторизации.",
+)
+async def get_user(user: UserDep):
+    # Зависимость UserDep уже достала пользователя или выдала 404
+    return user
+
+
+@app.patch(
+    "/user/{user_id}",
+    response_model=UserResponse,
+    tags=["Users"],
+    summary="Обновить данные пользователя",
+    description="Пользователь может обновить только себя. Админ может обновить любого.",
+)
+async def update_user(data: UserUpdate, user: UserDep, current_user: CurrentUserDep, db: DBDep):
+    # Проверка прав: либо админ, либо пользователь редактирует сам себя
+    if current_user.role != "admin" and current_user.id != user.id:
+        raise HTTPException(status_code=403, detail="Недостаточно прав для редактирования этого пользователя")
+
+    update_data = data.model_dump(exclude_unset=True)
+    if not update_data:
+        raise HTTPException(status_code=400, detail="Нет данных для обновления")
+
+    # Если в обновлениях есть пароль, его нужно хэшировать
+    if "password" in update_data:
+        update_data["password_hash"] = auth.get_password_hash(update_data.pop("password"))
+
+    # Если обычный юзер пытается сменить себе роль — запрещаем (только админ может)
+    if "role" in update_data and current_user.role != "admin":
+        raise HTTPException(status_code=403, detail="Только администратор может менять роли")
+
+    for k, v in update_data.items():
+        setattr(user, k, v)
+    return user
+
+
+@app.delete(
+    "/user/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    tags=["Users"],
+    summary="Удалить пользователя",
+    description="Пользователь может удалить только себя. Админ может удалить любого.",
+)
+async def delete_user(user: UserDep, current_user: CurrentUserDep, db: DBDep):
+    # Проверка прав: либо админ, либо пользователь удаляет сам себя
+    if current_user.role != "admin" and current_user.id != user.id:
+        raise HTTPException(status_code=403, detail="Недостаточно прав для удаления этого пользователя")
+
+    await db.delete(user)
+    return None
+
+
+# Роуты объявлений с правами
 
 @app.get(
     "/advertisement/{advertisement_id}",
@@ -69,6 +185,7 @@ async def health():
     """,
 )
 async def get_advertisement(ad: AdDep):
+    # Доступно всем, токен не нужен
     return ad
 
 
@@ -80,13 +197,14 @@ async def get_advertisement(ad: AdDep):
     summary="Создать объявление",
     description="""
     Создает новое объявление и сохраняет его в базу данных.
-
+    Требуется авторизация. Владелец объявления определяется по токену.
+    
     Все поля обязательны для заполнения. Строки, состоящие только из пробелов, не пройдут валидацию.
     При успешном создании возвращается статус **201 Created** и полный объект объявления с присвоенным ID и датой создания.
     """,
 )
-async def create_advertisement(data: AdCreate, db: DBDep):
-    ad = Advertisement(**data.model_dump())
+async def create_advertisement(data: AdCreate, db: DBDep, current_user: CurrentUserDep):
+    ad = Advertisement(**data.model_dump(), owner_id=current_user.id)
     db.add(ad)
     await db.flush()
     return ad
@@ -99,6 +217,7 @@ async def create_advertisement(data: AdCreate, db: DBDep):
     summary="Обновить объявление",
     description="""
     Частично обновляет существующее объявление.
+    Пользователь может обновлять только свои объявления. Админ — любые.
 
     - Нужно передать **только те поля**, которые вы хотите изменить.
     - Поля `title`, `description` и `author` проходят строгую проверку: пустые строки или строки из пробелов вызовут ошибку **400 Bad Request**.
@@ -106,7 +225,11 @@ async def create_advertisement(data: AdCreate, db: DBDep):
     - Если объявление не найдено, вернется ошибка **404 Not Found**.
     """,
 )
-async def update_advertisement(data: AdUpdate, ad: AdDep):
+async def update_advertisement(data: AdUpdate, ad: AdDep, current_user: CurrentUserDep):
+    # Проверка прав: либо админ, либо владелец объявления
+    if current_user.role != "admin" and ad.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Недостаточно прав для редактирования чужого объявления")
+
     update_data = data.model_dump(exclude_unset=True)
     if not update_data:
         raise HTTPException(status_code=400, detail="Нет данных для обновления")
@@ -123,12 +246,17 @@ async def update_advertisement(data: AdUpdate, ad: AdDep):
     summary="Удалить объявление",
     description="""
     Безвозвратно удаляет объявление из базы данных по его ID.
-
+    Пользователь может удалять только свои объявления. Админ — любые.
+    
     - В случае успеха возвращает статус **204 No Content** (пустой ответ).
     - Если объявление с таким ID не найдено, вернет ошибку **404 Not Found**.
     """,
 )
-async def delete_advertisement(ad: AdDep, db: DBDep):
+async def delete_advertisement(ad: AdDep, current_user: CurrentUserDep, db: DBDep):
+    # Проверка прав: либо админ, либо владелец объявления
+    if current_user.role != "admin" and ad.owner_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Недостаточно прав для удаления чужого объявления")
+
     await db.delete(ad)
     return None
 
@@ -147,6 +275,7 @@ async def delete_advertisement(ad: AdDep, db: DBDep):
 - `min_price` / `max_price` - фильтруют по диапазону цены включительно.
 
 Параметры можно комбинировать. Если параметры не переданы - вернет все объявления.
+Доступно всем без авторизации.
 """,
 )
 async def search_advertisements(db: DBDep, filters: AdFilter = Depends()):
