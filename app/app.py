@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, status
@@ -5,7 +6,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 
 import auth
-from database import Base, engine
+from database import Base, engine, async_session
 from dependencies import AdDep, DBDep, UserDep, CurrentUserDep, get_db
 from models import Advertisement, User
 from schemas import (
@@ -34,10 +35,27 @@ tags_metadata = [
 # Функция жизненного цикла приложения
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    # Код, выполняемый до старта приложения
     async with engine.begin() as conn:
-        # Создаем все таблицы из моделей по схемам
         await conn.run_sync(Base.metadata.create_all)
+
+    # Автосоздание администратора при первом старте
+    async with async_session() as session:
+        # Проверяем, есть ли хоть один админ в базе
+        result = await session.execute(select(User).where(User.role == "admin"))
+        admin_exists = result.scalars().first()
+
+        if not admin_exists:
+            admin_username = os.environ.get("ADMIN_USERNAME", "admin")
+            admin_password = os.environ.get("ADMIN_PASSWORD", "admin")
+            hashed_password = auth.get_password_hash(admin_password)
+            new_admin = User(
+                username=admin_username,
+                password_hash=hashed_password,
+                role="admin"
+            )
+            session.add(new_admin)
+            await session.commit()
+            print(f"Создан администратор по умолчанию: {admin_username}")
 
     yield
 
