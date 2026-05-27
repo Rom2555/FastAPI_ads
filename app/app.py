@@ -1,18 +1,18 @@
 from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 
+import auth
 from database import Base, engine
-from dependencies import AdDep, DBDep, UserDep, CurrentUserDep
+from dependencies import AdDep, DBDep, UserDep, CurrentUserDep, get_db
 from models import Advertisement, User
 from schemas import (
     AdCreate, AdFilter, AdResponse, AdUpdate,
     UserCreate, UserUpdate, UserResponse,
-    LoginRequest, TokenResponse
+    TokenResponse
 )
-import auth
-
 
 # Описание тегов для Swagger UI
 tags_metadata = [
@@ -74,19 +74,15 @@ async def health():
     response_model=TokenResponse,
     tags=["Users"],
     summary="Авторизация пользователя",
-    description="Проверяет логин и пароль. Если они верны, возвращает JWT-токен.",
 )
-async def login(data: LoginRequest, db: DBDep):
-    # 1. Ищем пользователя по username
-    query = select(User).where(User.username == data.username)
+async def login(db: DBDep, form_data: OAuth2PasswordRequestForm = Depends()):
+    query = select(User).where(User.username == form_data.username)
     res = await db.execute(query)
     user = res.scalars().first()
 
-    # 2. Если не нашли или пароль не совпал — ошибка 401
-    if not user or not auth.verify_password(data.password, user.password_hash):
+    if not user or not auth.verify_password(form_data.password, user.password_hash):
         raise HTTPException(status_code=401, detail="Неверный логин или пароль")
 
-    # 3. Создаем токен с ID пользователя внутри (ключ "sub" - стандарт JWT)
     token = auth.create_access_token({"sub": str(user.id)})
     return TokenResponse(access_token=token)
 
